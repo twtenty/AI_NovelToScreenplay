@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 小说转剧本工具</title>
+    <style>
+        :root {
+            --page: #f7f5f1;
+            --paper: #ffffff;
+            --paper-soft: #fbfaf7;
+            --text: #514d47;
+            --muted: #817b72;
+            --line: #e6dfd5;
+            --accent: #f59f00;
+            --accent-dark: #d98500;
+            --ink: #5c5851;
+            --success: #4f8065;
+            --warning: #b26616;
+            --shadow: 0 18px 40px rgba(66, 60, 52, .14);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background:
+                radial-gradient(circle at 50% -10%, rgba(245, 159, 0, .12), transparent 34%),
+                linear-gradient(180deg, #faf9f6 0%, var(--page) 100%);
+            color: var(--text);
+            font-family: Georgia, "Times New Roman", "Microsoft YaHei", serif;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            height: 76px;
+            border-top: 3px solid var(--accent);
+            background: rgba(255, 255, 255, .96);
+            box-shadow: 0 12px 28px rgba(72, 67, 60, .12);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav {
+            max-width: 1220px;
+            height: 100%;
+            margin: 0 auto;
+            padding: 0 26px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            font-size: 30px;
+            color: #5b5650;
+            letter-spacing: 0;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            color: #6f6961;
+            font-size: 15px;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 16px;
+            color: #3f3b35;
+            font-size: 27px;
+            line-height: 1;
+        }
+
+        .page {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 34px 24px 72px;
+        }
+
+        .section-label {
+            max-width: 780px;
+            margin: 0 auto 30px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #ddd5c9;
+            color: #6d675f;
+            font-weight: 700;
+        }
+
+        .hero {
+            max-width: 780px;
+            margin: 0 auto 28px;
+            padding: 26px 30px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .82);
+            box-shadow: 0 10px 30px rgba(66, 60, 52, .1);
+        }
+
+        .hero h1 {
+            margin: 0 0 10px;
+            color: #55504a;
+            font-size: 28px;
+            line-height: 1.25;
+        }
+
+        .hero p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.8;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 22px;
+            align-items: stretch;
+        }
+
+        .tool-card {
+            min-height: 770px;
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            border-radius: 8px;
+            background: var(--paper);
+            box-shadow: var(--shadow);
+        }
+
+        .card-head {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .card-head h2 {
+            margin: 0;
+            color: #5a554e;
+            font-size: 20px;
+        }
+
+        .card-head span {
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        label {
+            display: block;
+            margin: 14px 0 7px;
+            color: #5a554e;
+            font-weight: 700;
+        }
+
+        input, textarea {
+            width: 100%;
+            border: 1px solid #ded6cb;
+            border-radius: 8px;
+            background: #fff;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.65;
+        }
+
+        input {
+            height: 48px;
+            padding: 0 13px;
+        }
+
+        textarea {
+            padding: 13px;
+            resize: none;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(245, 159, 0, .13);
+        }
+
+        input[type="file"] {
+            height: auto;
+            padding: 12px;
+            border-style: dashed;
+            background: var(--paper-soft);
+            cursor: pointer;
+        }
+
+        input[type="file"]::file-selector-button {
+            margin-right: 12px;
+            padding: 9px 13px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--ink);
+            color: #fff;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .text-area-wrap {
+            min-height: 0;
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .textarea-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .small-note {
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        #novelText,
+        #yamlOutput {
+            min-height: 0;
+            flex: 1;
+        }
+
+        #yamlOutput {
+            font-family: Consolas, "Courier New", monospace;
+            background: #fff;
+            white-space: pre;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+            color: #5f5a53;
+            font-size: 14px;
+        }
+
+        .metric {
+            padding: 8px 10px;
+            border: 1px solid #eee2cf;
+            border-radius: 8px;
+            background: #fbf8f1;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        button {
+            min-height: 42px;
+            padding: 11px 18px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        button:hover { background: var(--accent-dark); }
+        button.secondary { background: var(--ink); }
+        button.secondary:hover { background: #3f3b35; }
+        button.light { background: #f3eee6; color: #5a554e; }
+        button.light:hover { background: #e9dfd1; }
+        button:disabled { background: #ddb46a; cursor: wait; }
+
+        .status-area {
+            max-width: 780px;
+            margin: 20px auto 0;
+            color: var(--muted);
+        }
+
+        .status {
+            min-height: 24px;
+            color: var(--success);
+        }
+
+        .status.warning { color: var(--warning); }
+        .hint { margin-top: 6px; font-size: 13px; }
+
+        @media (max-width: 920px) {
+            .nav-links { display: none; }
+            .workspace { grid-template-columns: 1fr; }
+            .tool-card { min-height: 680px; }
+        }
+
+        @media (max-width: 640px) {
+            .nav { padding: 0 16px; }
+            .brand { font-size: 26px; }
+            .nav-actions { font-size: 24px; }
+            .page { padding: 26px 16px 52px; }
+            .hero, .tool-card { padding: 22px; }
+            .card-head { display: block; }
+            .card-head span { display: block; margin-top: 8px; }
+            button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <nav class="nav">
+        <div class="brand">ZXChen</div>
+        <div class="nav-links">
+            <!-- <span>首页</span>
+            <span>归档</span>
+            <span>清单</span>
+            <span>创作</span>
+            <span>关于</span> -->
+        </div>
+        <div class="nav-actions">
+            <span>⌕</span>
+            <span>◎</span>
+        </div>
+    </nav>
+</div>
+
+<main class="page">
+    <div class="section-label">发现 / AI 剧本创作</div>
+
+    <section class="hero">
+        <h1>AI 小说转剧本工具</h1>
+        <p>上传或粘贴 3 个章节以上的小说正文，自动转换为结构化剧本 YAML，方便继续打磨场景、动作和对白。</p>
+    </section>
+
+    <section class="workspace">
+        <article class="tool-card">
+            <div class="card-head">
+                <h2>小说原文</h2>
+                <span>上传文本或直接粘贴</span>
+            </div>
+
+            <label for="title">小说标题</label>
+            <input id="title" placeholder="例如：远方的灯火" />
+
+            <label for="source">原文来源</label>
+            <input id="source" placeholder="例如：章节一、网络小说" />
+
+            <label for="novelFile">上传小说文件</label>
+            <input id="novelFile" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" />
+
+            <div class="text-area-wrap">
+                <div class="textarea-title">
+                    <label for="novelText">小说正文</label>
+                    <span class="small-note">至少 3 个章节</span>
+                </div>
+                <textarea id="novelText" placeholder="将 3 个章节以上的小说文本粘贴到这里"></textarea>
+            </div>
+
+            <div class="metrics">
+                <span id="chapterMetric" class="metric">章节数：0</span>
+                <span id="charMetric" class="metric">字数：0</span>
+            </div>
+
+            <div class="toolbar">
+                <button id="convertButton">开始转换</button>
+                <button id="sampleButton" class="light" type="button">载入样例</button>
+                <button id="clearButton" class="light" type="button">清空</button>
+            </div>
+        </article>
+
+        <article class="tool-card">
+            <div class="card-head">
+                <h2>生成的 YAML</h2>
+                <span>可复制或下载</span>
+            </div>
+
+            <div class="text-area-wrap">
+                <textarea id="yamlOutput" readonly></textarea>
+            </div>
+
+            <div class="toolbar">
+                <button id="copyButton" class="secondary" type="button">复制 YAML</button>
+                <button id="downloadButton" class="secondary" type="button">下载 YAML</button>
+            </div>
+        </article>
+    </section>
+
+    <div class="status-area">
+        <div id="status" class="status"></div>
+        <div class="hint">配置 <code>DASHSCOPE_API_KEY</code> 后可调用通义千问；未配置时会生成演示 YAML。</div>
+    </div>
+</main>
+
+<script>
+    const button = document.getElementById('convertButton');
+    const sampleButton = document.getElementById('sampleButton');
+    const clearButton = document.getElementById('clearButton');
+    const copyButton = document.getElementById('copyButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const status = document.getElementById('status');
+    const titleInput = document.getElementById('title');
+    const sourceInput = document.getElementById('source');
+    const novelFileInput = document.getElementById('novelFile');
+    const novelTextInput = document.getElementById('novelText');
+    const yamlOutput = document.getElementById('yamlOutput');
+    const chapterMetric = document.getElementById('chapterMetric');
+    const charMetric = document.getElementById('charMetric');
+
+    const chapterPattern = /^\s*(第[一二三四五六七八九十百千万0-9]+[章节回]|chapter\s*\d+|chap\.\s*\d+).*$/gim;
+    const sampleNovel = `第一章 雨夜归来
+
+林澈在雨夜回到海边小镇。车站的灯忽明忽暗，他拖着旧行李箱走下最后一班车。站台尽头，沈晚撑着一把黑伞，像是已经等了很久。
+
+他们曾经是最亲近的人，却因为十年前的一场海难断了联系。沈晚问他为什么回来，林澈只说父亲留下的老屋需要处理。沈晚沉默片刻，告诉他旧灯塔三天后就要拆除，而林澈的父亲曾在那里留下过一本日志。
+
+林澈原本只想停留一晚，可听到“日志”两个字后，他改变了主意。
+
+第二章 灯塔日志
+
+第二天清晨，林澈和沈晚来到旧灯塔。潮水拍打礁石，铁门被海风吹得吱呀作响。灯塔内部潮湿阴冷，墙上还残留着父亲当年写下的维修记录。
+
+林澈在控制室的地板夹层里找到一本发霉的日志。日志记录了一次被镇上隐瞒的海难：当年船上并不只有遇难者，还有几名被秘密救下的幸存者。
+
+最后一页写着一个名字：许望。沈晚看见这个名字后脸色发白，因为许望正是她失踪多年的哥哥。
+
+第三章 旧船厂
+
+为了查清许望是否还活着，林澈和沈晚来到废弃船厂。船厂里堆满生锈的铁架和废弃渔网，空气中有机油和海盐混杂的味道。
+
+林澈在一只旧铁柜里找到父亲留下的照片，照片背面写着一串坐标。沈晚质问他为什么十年后才回来面对这一切。林澈终于承认，他一直害怕发现父亲并不是英雄，也害怕再次见到沈晚。
+
+就在两人争执时，船厂外传来脚步声。一盘旧录音带被人从门缝推了进来。录音机启动后，里面传出许望沙哑的声音：“如果有人听见这段录音，不要相信灯塔拆除计划。”`;
+
+    function estimateChapterCount(text) {
+        return (text.match(chapterPattern) || []).length;
+    }
+
+    function updateMetrics() {
+        const text = novelTextInput.value;
+        const chapterCount = estimateChapterCount(text);
+        chapterMetric.textContent = `章节数：${chapterCount}`;
+        charMetric.textContent = `字数：${text.trim().length}`;
+        chapterMetric.style.borderColor = chapterCount >= 3 ? '#f4c56a' : '#eee2cf';
+        chapterMetric.style.background = chapterCount >= 3 ? '#fff6df' : '#fbf8f1';
+    }
+
+    function setStatus(message, type = 'info') {
+        status.textContent = message;
+        status.className = type === 'warning' ? 'status warning' : 'status';
+    }
+
+    novelTextInput.addEventListener('input', updateMetrics);
+
+    novelFileInput.addEventListener('change', async () => {
+        const file = novelFileInput.files[0];
+        if (!file) {
+            return;
+        }
+
+        const allowedExtensions = ['.txt', '.md', '.markdown'];
+        const lowerName = file.name.toLowerCase();
+        const isAllowed = allowedExtensions.some((extension) => lowerName.endsWith(extension));
+        if (!isAllowed) {
+            setStatus('请上传 txt 或 md 格式的小说文本文件。', 'warning');
+            novelFileInput.value = '';
+            return;
+        }
+
+        try {
+            const text = await file.text();
+            novelTextInput.value = text;
+            if (!titleInput.value.trim()) {
+                titleInput.value = file.name.replace(/\.(txt|md|markdown)$/i, '');
+            }
+            if (!sourceInput.value.trim()) {
+                sourceInput.value = file.name;
+            }
+            yamlOutput.value = '';
+            updateMetrics();
+            setStatus(`已读取文件：${file.name}`);
+        } catch (error) {
+            setStatus('文件读取失败：' + error, 'warning');
+        }
+    });
+
+    button.addEventListener('click', async () => {
+        const title = titleInput.value;
+        const source = sourceInput.value;
+        const novelText = novelTextInput.value;
+        const chapterCount = estimateChapterCount(novelText);
+
+        if (!novelText.trim()) {
+            setStatus('请先输入小说正文。', 'warning');
+            return;
+        }
+
+        if (chapterCount < 3) {
+            setStatus('章节数不足，请至少输入 3 个章节。', 'warning');
+            return;
+        }
+
+        yamlOutput.value = '';
+        setStatus(`正在转换 ${chapterCount} 个章节，请稍候。`);
+        button.disabled = true;
+        button.textContent = '转换中...';
+
+        try {
+            const response = await fetch('/api/convert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, source, novelText })
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                yamlOutput.value = '错误：' + data.error;
+                setStatus('转换失败，请检查输入内容或后端配置。', 'warning');
+            } else {
+                yamlOutput.value = data.yaml;
+                setStatus('转换完成，可以复制或下载 YAML。');
+            }
+        } catch (error) {
+            yamlOutput.value = '请求失败：' + error;
+            setStatus('请求失败，请确认服务已启动。', 'warning');
+        } finally {
+            button.disabled = false;
+            button.textContent = '开始转换';
+        }
+    });
+
+    sampleButton.addEventListener('click', () => {
+        titleInput.value = '远方的灯火';
+        sourceInput.value = '原创测试文本：前三章';
+        novelTextInput.value = sampleNovel;
+        yamlOutput.value = '';
+        updateMetrics();
+        setStatus('测试样例已载入，可以开始转换。');
+    });
+
+    clearButton.addEventListener('click', () => {
+        titleInput.value = '';
+        sourceInput.value = '';
+        novelFileInput.value = '';
+        novelTextInput.value = '';
+        yamlOutput.value = '';
+        updateMetrics();
+        setStatus('内容已清空。');
+    });
+
+    copyButton.addEventListener('click', async () => {
+        const yaml = yamlOutput.value;
+        if (!yaml) {
+            setStatus('当前没有可复制的 YAML。', 'warning');
+            return;
+        }
+        await navigator.clipboard.writeText(yaml);
+        setStatus('YAML 已复制。');
+    });
+
+    downloadButton.addEventListener('click', () => {
+        const yaml = yamlOutput.value;
+        if (!yaml) {
+            setStatus('当前没有可下载的 YAML。', 'warning');
+            return;
+        }
+        const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'screenplay.yaml';
+        link.click();
+        URL.revokeObjectURL(url);
+        setStatus('YAML 文件已下载。');
+    });
+
+    updateMetrics();
+</script>
+</body>
+</html>

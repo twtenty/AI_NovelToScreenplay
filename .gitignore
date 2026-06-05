@@ -1,0 +1,15 @@
+target/
+.env
+*.log
+*.class
+*.jar
+*.war
+*.iml
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.github/modernize/
+.DS_Store

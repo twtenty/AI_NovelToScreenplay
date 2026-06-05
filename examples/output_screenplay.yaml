@@ -1,0 +1,71 @@
+title: "远方的灯火"
+source: "前三章示例文本"
+generation_mode: "example"
+chapters:
+  - chapter: "第一章 雨夜归来"
+    summary: "林澈雨夜回到海边小镇，与旧识沈晚重逢，并得知父亲可能在旧灯塔留下关键日志。"
+    scenes:
+      - scene_id: "1.1"
+        title: "车站重逢"
+        location: "海边小镇车站"
+        time: "雨夜"
+        description: "昏暗车站里，林澈拖着旧行李箱归来。沈晚站在檐下等他，两人礼貌寒暄，却回避过去的裂痕。"
+        characters:
+          - "林澈"
+          - "沈晚"
+        actions:
+          - actor: "林澈"
+            text: "停在站台边，抬头看向沈晚，手指握紧行李箱拉杆。"
+          - actor: "沈晚"
+            text: "递出一把伞，目光短暂停在林澈脸上。"
+        dialogues:
+          - speaker: "沈晚"
+            line: "你还是回来了。"
+          - speaker: "林澈"
+            line: "我只是路过，明天就走。"
+        notes: "这一场建立旧识关系和未解心结。"
+  - chapter: "第二章 灯塔日志"
+    summary: "林澈和沈晚在旧灯塔找到父亲日志，日志揭开被隐瞒的海难，并牵出沈晚哥哥许望。"
+    scenes:
+      - scene_id: "2.1"
+        title: "控制室里的日志"
+        location: "旧灯塔控制室"
+        time: "清晨"
+        description: "潮声不断，控制室布满灰尘。林澈撬开夹层，发现父亲留下的日志。"
+        characters:
+          - "林澈"
+          - "沈晚"
+        actions:
+          - actor: "林澈"
+            text: "翻开受潮的日志，读到海难记录后沉默。"
+          - actor: "沈晚"
+            text: "听见许望的名字后后退一步。"
+        dialogues:
+          - speaker: "林澈"
+            line: "这里写着，许望还活着。"
+          - speaker: "沈晚"
+            line: "不可能。他已经失踪十年了。"
+        notes: "这一场把个人情感推进到悬疑主线。"
+  - chapter: "第三章 旧船厂"
+    summary: "两人在废弃船厂发现父亲保护幸存者名单的真相，并收到许望声音的录音带。"
+    scenes:
+      - scene_id: "3.1"
+        title: "录音带"
+        location: "废弃船厂"
+        time: "夜晚"
+        description: "林澈承认自己害怕面对真相。门外脚步声响起，一盘旧录音带被放在门口。"
+        characters:
+          - "林澈"
+          - "沈晚"
+          - "陌生人"
+        actions:
+          - actor: "沈晚"
+            text: "按下录音机播放键，呼吸变得急促。"
+          - actor: "林澈"
+            text: "挡在门口，警惕地望向黑暗。"
+        dialogues:
+          - speaker: "沈晚"
+            line: "这是我哥哥的声音。"
+          - speaker: "林澈"
+            line: "那我们就还来得及。"
+        notes: "结尾制造钩子，为下一章追查许望做铺垫。"
