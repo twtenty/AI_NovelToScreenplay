@@ -173,10 +173,37 @@
         }
 
         .auth-user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: grid;
+            gap: 14px;
             color: var(--muted);
+        }
+
+        .account-panel {
+            display: grid;
+            gap: 10px;
+            min-width: 320px;
+        }
+
+        .account-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .account-badge {
+            padding: 8px 10px;
+            border: 1px solid #eee2cf;
+            border-radius: 8px;
+            background: #fbf8f1;
+            color: #5f5a53;
+            font-size: 14px;
+        }
+
+        .recharge-form {
+            display: grid;
+            grid-template-columns: minmax(120px, 1fr) auto;
+            gap: 10px;
+            align-items: center;
         }
 
         .hidden {
@@ -411,8 +438,21 @@
                 <p>登录后即可发起小说转剧本转换，注册成功会自动登录。</p>
             </div>
             <div id="authUser" class="auth-user hidden">
-                <span id="currentUser"></span>
-                <button id="logoutButton" class="light" type="button">退出登录</button>
+                <div class="account-panel">
+                    <div class="account-summary">
+                        <span id="currentUser" class="account-badge"></span>
+                        <span id="balanceLabel" class="account-badge"></span>
+                    </div>
+                    <div class="recharge-form">
+                        <input id="rechargeAmount" type="number" min="1" step="1" placeholder="充值金额，例如 20" />
+                        <button id="rechargeButton" type="button">充值余额</button>
+                    </div>
+                    <div class="auth-actions">
+                        <button id="upgradeVipButton" type="button">开通 VIP（10 元）</button>
+                        <button id="backFromAccountButton" class="light" type="button">返回首页</button>
+                        <button id="logoutButton" class="light" type="button">退出登录</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -501,7 +541,11 @@
     const loginButton = document.getElementById('loginButton');
     const registerButton = document.getElementById('registerButton');
     const logoutButton = document.getElementById('logoutButton');
+    const upgradeVipButton = document.getElementById('upgradeVipButton');
+    const rechargeButton = document.getElementById('rechargeButton');
+    const rechargeAmountInput = document.getElementById('rechargeAmount');
     const backToAppButton = document.getElementById('backToAppButton');
+    const backFromAccountButton = document.getElementById('backFromAccountButton');
     const status = document.getElementById('status');
     const navUser = document.getElementById('navUser');
     const introBlock = document.getElementById('introBlock');
@@ -510,6 +554,7 @@
     const authForm = document.getElementById('authForm');
     const authUser = document.getElementById('authUser');
     const currentUser = document.getElementById('currentUser');
+    const balanceLabel = document.getElementById('balanceLabel');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
     const titleInput = document.getElementById('title');
@@ -521,6 +566,8 @@
     const charMetric = document.getElementById('charMetric');
     const MAX_NOVEL_CHARS = 1000;
     let loggedInUser = null;
+    let loggedInVip = false;
+    let loggedInBalance = 0;
 
     const chapterPattern = /^\s*(第[一二三四五六七八九十百千万0-9]+[章节回]|chapter\s*\d+|chap\.\s*\d+).*$/gim;
     const sampleNovel = `第一章 雨夜归来
@@ -579,16 +626,29 @@
         status.className = type === 'warning' ? 'status warning' : 'status';
     }
 
-    function setCurrentUser(username) {
+    function formatMoney(value) {
+        const amount = Number(value || 0);
+        return amount.toFixed(2);
+    }
+
+    function setCurrentUser(username, vip = false, balance = 0) {
         loggedInUser = username;
+        loggedInVip = vip;
+        loggedInBalance = Number(balance || 0);
         if (username) {
-            navUser.textContent = `你好，${username}`;
-            currentUser.textContent = `当前用户：${username}`;
+            const userLevel = vip ? 'VIP' : '普通用户';
+            navUser.textContent = `你好，${username} · ${userLevel}`;
+            currentUser.textContent = `当前用户：${username} · ${userLevel}`;
+            balanceLabel.textContent = `账户余额：￥${formatMoney(loggedInBalance)}`;
+            upgradeVipButton.classList.toggle('hidden', vip);
             authForm.classList.add('hidden');
             authUser.classList.remove('hidden');
         } else {
             navUser.textContent = '未登录';
             currentUser.textContent = '';
+            balanceLabel.textContent = '';
+            rechargeAmountInput.value = '';
+            upgradeVipButton.classList.remove('hidden');
             authForm.classList.remove('hidden');
             authUser.classList.add('hidden');
         }
@@ -598,7 +658,9 @@
         introBlock.classList.add('hidden');
         authPage.classList.remove('hidden');
         workspace.classList.add('hidden');
-        usernameInput.focus();
+        if (!loggedInUser) {
+            usernameInput.focus();
+        }
         window.location.hash = 'login';
     }
 
@@ -629,7 +691,7 @@
         }
 
         passwordInput.value = '';
-        setCurrentUser(data.username);
+        setCurrentUser(data.username, data.vip, data.balance);
         setStatus(endpoint.endsWith('/register') ? '注册成功，已自动登录。' : '登录成功。');
         showWorkspace();
     }
@@ -637,7 +699,7 @@
     async function loadCurrentUser() {
         const response = await fetch('/api/auth/me');
         const data = await response.json();
-        setCurrentUser(data.success ? data.username : null);
+        setCurrentUser(data.success ? data.username : null, data.vip, data.balance);
     }
 
     novelTextInput.addEventListener('input', () => {
@@ -737,6 +799,44 @@
     loginButton.addEventListener('click', () => submitAuth('/api/auth/login'));
     registerButton.addEventListener('click', () => submitAuth('/api/auth/register'));
     backToAppButton.addEventListener('click', showWorkspace);
+    backFromAccountButton.addEventListener('click', showWorkspace);
+    rechargeButton.addEventListener('click', async () => {
+        const amount = Number(rechargeAmountInput.value);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setStatus('请输入大于 0 元的充值金额。', 'warning');
+            rechargeAmountInput.focus();
+            return;
+        }
+
+        const response = await fetch('/api/auth/recharge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            setStatus(data.error || '充值失败，请稍后重试。', 'warning');
+            return;
+        }
+
+        rechargeAmountInput.value = '';
+        setCurrentUser(data.username, data.vip, data.balance);
+        setStatus(`充值成功，当前余额 ￥${formatMoney(data.balance)}。`);
+    });
+    upgradeVipButton.addEventListener('click', async () => {
+        const response = await fetch('/api/auth/vip', { method: 'POST' });
+        const data = await response.json();
+        if (!data.success) {
+            setCurrentUser(data.username || loggedInUser, data.vip || loggedInVip, data.balance ?? loggedInBalance);
+            setStatus(data.error || '开通 VIP 失败，请稍后重试。', 'warning');
+            if ((data.error || '').includes('余额不足')) {
+                rechargeAmountInput.focus();
+            }
+            return;
+        }
+        setCurrentUser(data.username, data.vip, data.balance);
+        setStatus(`开通成功，已扣除 10 元，当前余额 ￥${formatMoney(data.balance)}。`);
+    });
     navUser.addEventListener('click', () => {
         if (loggedInUser) {
             showAuthPage();
