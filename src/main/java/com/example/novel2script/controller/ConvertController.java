@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class ConvertController {
+    private static final int MAX_NOVEL_TEXT_LENGTH = 1000;
     private final PromptService promptService;
 
     public ConvertController(PromptService promptService) {
@@ -29,6 +30,10 @@ public class ConvertController {
 
         if (request == null || request.getNovelText() == null || request.getNovelText().trim().isEmpty()) {
             return new ConvertResponse(null, "小说正文不能为空。");
+        }
+
+        if (request.getNovelText().trim().length() > MAX_NOVEL_TEXT_LENGTH) {
+            return new ConvertResponse(null, "小说正文最多 1000 字，请删减后再转换。");
         }
 
         if (promptService.estimateChapterCount(request.getNovelText()) < 3) {
