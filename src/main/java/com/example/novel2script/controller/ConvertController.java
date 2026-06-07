@@ -2,6 +2,7 @@ package com.example.novel2script.controller;
 
 import com.example.novel2script.model.ConvertRequest;
 import com.example.novel2script.model.ConvertResponse;
+import com.example.novel2script.service.AuthService;
 import com.example.novel2script.service.PromptService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -15,15 +16,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class ConvertController {
     private static final int MAX_NOVEL_TEXT_LENGTH = 1000;
+    private final AuthService authService;
     private final PromptService promptService;
 
-    public ConvertController(PromptService promptService) {
+    public ConvertController(AuthService authService, PromptService promptService) {
+        this.authService = authService;
         this.promptService = promptService;
     }
 
     @PostMapping(value = "/convert", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ConvertResponse convert(@RequestBody ConvertRequest request, HttpSession session, HttpServletResponse response) {
-        if (session.getAttribute(AuthController.SESSION_USERNAME) == null) {
+        String username = (String) session.getAttribute(AuthController.SESSION_USERNAME);
+        if (username == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return new ConvertResponse(null, "请先登录后再转换剧本。");
         }
@@ -32,7 +36,7 @@ public class ConvertController {
             return new ConvertResponse(null, "小说正文不能为空。");
         }
 
-        if (request.getNovelText().trim().length() > MAX_NOVEL_TEXT_LENGTH) {
+        if (!authService.isVip(username) && request.getNovelText().trim().length() > MAX_NOVEL_TEXT_LENGTH) {
             return new ConvertResponse(null, "小说正文最多 1000 字，请删减后再转换。");
         }
 
