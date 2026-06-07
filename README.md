@@ -5,6 +5,7 @@
 ## 功能
 
 - 输入小说标题、原文来源和不少于 3 个章节的小说正文
+- 支持用户注册、登录和退出，登录后才能发起剧本转换
 - 支持上传 `.txt` / `.md` 小说文本文件并自动填充正文
 - 自动生成符合 Schema 的剧本 YAML
 - 前端页面展示转换结果，支持复制和下载 `.yaml`
@@ -120,6 +121,7 @@ mvn test
 
 - `src/main/java`：Java 后端实现
 - `src/main/resources/static/index.html`：前端页面
+- `data/users.json`：本地注册用户数据，运行时自动生成，已被 `.gitignore` 忽略
 - `YAML_SCHEMA.md`：剧本 YAML Schema 说明与设计原因
 - `schema.md`：Schema 简版说明
 - `examples/input_novel.md`：示例小说输入

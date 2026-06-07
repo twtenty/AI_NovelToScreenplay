@@ -1,5 +1,6 @@
 target/
 .env
+data/users.json
 *.log
 *.class
 *.jar

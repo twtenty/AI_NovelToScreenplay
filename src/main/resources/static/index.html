@@ -68,9 +68,10 @@
 
         .nav-actions {
             display: flex;
+            align-items: center;
             gap: 16px;
             color: #3f3b35;
-            font-size: 27px;
+            font-size: 18px;
             line-height: 1;
         }
 
@@ -109,6 +110,57 @@
             margin: 0;
             color: var(--muted);
             line-height: 1.8;
+        }
+
+        .auth-card {
+            max-width: 780px;
+            margin: 0 auto 28px;
+            padding: 20px 24px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .9);
+            box-shadow: 0 10px 28px rgba(66, 60, 52, .1);
+        }
+
+        .auth-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .auth-head h2 {
+            margin: 0;
+            color: #5a554e;
+            font-size: 18px;
+        }
+
+        .auth-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .auth-form label {
+            margin-top: 0;
+            font-size: 13px;
+        }
+
+        .auth-form button {
+            margin-top: 0;
+        }
+
+        .auth-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         .workspace {
@@ -294,6 +346,7 @@
             .nav-links { display: none; }
             .workspace { grid-template-columns: 1fr; }
             .tool-card { min-height: 680px; }
+            .auth-form { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 640px) {
@@ -313,15 +366,10 @@
     <nav class="nav">
         <div class="brand">ZXChen</div>
         <div class="nav-links">
-            <!-- <span>首页</span>
-            <span>归档</span>
-            <span>清单</span>
-            <span>创作</span>
-            <span>关于</span> -->
+            <!--  -->
         </div>
         <div class="nav-actions">
-            <span>⌕</span>
-            <span>◎</span>
+            <span id="navUser">未登录</span>
         </div>
     </nav>
 </div>
@@ -332,6 +380,29 @@
     <section class="hero">
         <h1>AI 小说转剧本工具</h1>
         <p>上传或粘贴 3 个章节以上的小说正文，自动转换为结构化剧本 YAML，方便继续打磨场景、动作和对白。</p>
+    </section>
+
+    <section class="auth-card">
+        <div class="auth-head">
+            <h2>用户登录</h2>
+            <div id="authUser" class="auth-user hidden">
+                <span id="currentUser"></span>
+                <button id="logoutButton" class="light" type="button">退出登录</button>
+            </div>
+        </div>
+
+        <div id="authForm" class="auth-form">
+            <div>
+                <label for="username">用户名</label>
+                <input id="username" autocomplete="username" placeholder="3-20 位英文/数字" />
+            </div>
+            <div>
+                <label for="password">密码</label>
+                <input id="password" type="password" autocomplete="current-password" placeholder="至少 6 位" />
+            </div>
+            <button id="loginButton" type="button">登录</button>
+            <button id="registerButton" class="light" type="button">注册</button>
+        </div>
     </section>
 
     <section class="workspace">
@@ -399,7 +470,16 @@
     const clearButton = document.getElementById('clearButton');
     const copyButton = document.getElementById('copyButton');
     const downloadButton = document.getElementById('downloadButton');
+    const loginButton = document.getElementById('loginButton');
+    const registerButton = document.getElementById('registerButton');
+    const logoutButton = document.getElementById('logoutButton');
     const status = document.getElementById('status');
+    const navUser = document.getElementById('navUser');
+    const authForm = document.getElementById('authForm');
+    const authUser = document.getElementById('authUser');
+    const currentUser = document.getElementById('currentUser');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
     const titleInput = document.getElementById('title');
     const sourceInput = document.getElementById('source');
     const novelFileInput = document.getElementById('novelFile');
@@ -407,6 +487,7 @@
     const yamlOutput = document.getElementById('yamlOutput');
     const chapterMetric = document.getElementById('chapterMetric');
     const charMetric = document.getElementById('charMetric');
+    let loggedInUser = null;
 
     const chapterPattern = /^\s*(第[一二三四五六七八九十百千万0-9]+[章节回]|chapter\s*\d+|chap\.\s*\d+).*$/gim;
     const sampleNovel = `第一章 雨夜归来
@@ -451,6 +532,51 @@
         status.className = type === 'warning' ? 'status warning' : 'status';
     }
 
+    function setCurrentUser(username) {
+        loggedInUser = username;
+        if (username) {
+            navUser.textContent = `你好，${username}`;
+            currentUser.textContent = `当前用户：${username}`;
+            authForm.classList.add('hidden');
+            authUser.classList.remove('hidden');
+        } else {
+            navUser.textContent = '未登录';
+            currentUser.textContent = '';
+            authForm.classList.remove('hidden');
+            authUser.classList.add('hidden');
+        }
+    }
+
+    async function submitAuth(endpoint) {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+            setStatus('请输入用户名和密码。', 'warning');
+            return;
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            setStatus(data.error || '认证失败。', 'warning');
+            return;
+        }
+
+        passwordInput.value = '';
+        setCurrentUser(data.username);
+        setStatus(endpoint.endsWith('/register') ? '注册成功，已自动登录。' : '登录成功。');
+    }
+
+    async function loadCurrentUser() {
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+        setCurrentUser(data.success ? data.username : null);
+    }
+
     novelTextInput.addEventListener('input', updateMetrics);
 
     novelFileInput.addEventListener('change', async () => {
@@ -491,6 +617,11 @@
         const novelText = novelTextInput.value;
         const chapterCount = estimateChapterCount(novelText);
 
+        if (!loggedInUser) {
+            setStatus('请先登录或注册账号，再转换剧本。', 'warning');
+            return;
+        }
+
         if (!novelText.trim()) {
             setStatus('请先输入小说正文。', 'warning');
             return;
@@ -516,7 +647,7 @@
 
             if (data.error) {
                 yamlOutput.value = '错误：' + data.error;
-                setStatus('转换失败，请检查输入内容或后端配置。', 'warning');
+                setStatus(response.status === 401 ? data.error : '转换失败，请检查输入内容或后端配置。', 'warning');
             } else {
                 yamlOutput.value = data.yaml;
                 setStatus('转换完成，可以复制或下载 YAML。');
@@ -528,6 +659,14 @@
             button.disabled = false;
             button.textContent = '开始转换';
         }
+    });
+
+    loginButton.addEventListener('click', () => submitAuth('/api/auth/login'));
+    registerButton.addEventListener('click', () => submitAuth('/api/auth/register'));
+    logoutButton.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        setCurrentUser(null);
+        setStatus('已退出登录。');
     });
 
     sampleButton.addEventListener('click', () => {
@@ -576,6 +715,7 @@
     });
 
     updateMetrics();
+    loadCurrentUser();
 </script>
 </body>
 </html>
