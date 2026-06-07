@@ -1,5 +1,9 @@
 target/
 .env
+data/users.json
+data/*.db
+data/*.mv.db
+data/*.trace.db
 *.log
 *.class
 *.jar
