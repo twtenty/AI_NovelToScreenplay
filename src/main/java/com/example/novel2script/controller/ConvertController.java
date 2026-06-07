@@ -3,24 +3,30 @@ package com.example.novel2script.controller;
 import com.example.novel2script.model.ConvertRequest;
 import com.example.novel2script.model.ConvertResponse;
 import com.example.novel2script.service.AuthService;
+import com.example.novel2script.service.HistoryService;
 import com.example.novel2script.service.PromptService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
 public class ConvertController {
     private static final int MAX_NOVEL_TEXT_LENGTH = 1000;
     private final AuthService authService;
+    private final HistoryService historyService;
     private final PromptService promptService;
 
-    public ConvertController(AuthService authService, PromptService promptService) {
+    public ConvertController(AuthService authService, HistoryService historyService, PromptService promptService) {
         this.authService = authService;
+        this.historyService = historyService;
         this.promptService = promptService;
     }
 
@@ -46,9 +52,20 @@ public class ConvertController {
 
         try {
             String yaml = promptService.convertNovelToYaml(request.getTitle(), request.getSource(), request.getNovelText());
+            historyService.save(username, request, yaml);
             return new ConvertResponse(yaml, null);
         } catch (Exception e) {
             return new ConvertResponse(null, "转换失败: " + e.getMessage());
         }
+    }
+
+    @GetMapping(value = "/history", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Object history(HttpSession session, HttpServletResponse response) {
+        String username = (String) session.getAttribute(AuthController.SESSION_USERNAME);
+        if (username == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return List.of();
+        }
+        return historyService.listByUsername(username);
     }
 }

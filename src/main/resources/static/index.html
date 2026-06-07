@@ -356,6 +356,61 @@
             margin-top: 18px;
         }
 
+        .history-panel {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+        }
+
+        .history-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .history-head h3 {
+            margin: 0;
+            color: #5a554e;
+            font-size: 16px;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 8px;
+            max-height: 190px;
+            overflow: auto;
+        }
+
+        .history-item {
+            width: 100%;
+            min-height: auto;
+            padding: 10px 12px;
+            border: 1px solid #eee2cf;
+            border-radius: 8px;
+            background: #fbf8f1;
+            color: #5a554e;
+            text-align: left;
+            font-weight: 400;
+        }
+
+        .history-item:hover {
+            background: #fff6df;
+        }
+
+        .history-title {
+            display: block;
+            font-weight: 700;
+        }
+
+        .history-meta {
+            display: block;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
         button {
             min-height: 42px;
             padding: 11px 18px;
@@ -388,6 +443,44 @@
 
         .status.warning { color: var(--warning); }
         .hint { margin-top: 6px; font-size: 13px; }
+
+        .modal-mask {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(36, 32, 27, .28);
+        }
+
+        .modal {
+            width: min(420px, 100%);
+            padding: 26px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 24px 60px rgba(45, 39, 32, .24);
+        }
+
+        .modal h3 {
+            margin: 0 0 10px;
+            color: #4f4942;
+            font-size: 20px;
+        }
+
+        .modal p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.8;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
 
         @media (max-width: 920px) {
             .nav-links { display: none; }
@@ -451,6 +544,15 @@
                         <button id="upgradeVipButton" type="button">开通 VIP（10 元）</button>
                         <button id="backFromAccountButton" class="light" type="button">返回首页</button>
                         <button id="logoutButton" class="light" type="button">退出登录</button>
+                    </div>
+                    <div class="history-panel">
+                        <div class="history-head">
+                            <h3>历史记录</h3>
+                            <button id="refreshHistoryButton" class="light" type="button">刷新</button>
+                        </div>
+                        <div id="historyList" class="history-list">
+                            <div class="small-note">登录后可查看最近生成记录。</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -523,6 +625,7 @@
                 <button id="copyButton" class="secondary" type="button">复制 YAML</button>
                 <button id="downloadButton" class="secondary" type="button">下载 YAML</button>
             </div>
+
         </article>
     </section>
 
@@ -532,12 +635,24 @@
     </div>
 </main>
 
+<div id="vipModal" class="modal-mask hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vipModalTitle">
+        <h3 id="vipModalTitle">VIP 专属功能</h3>
+        <p>上传小说文件需要开通 VIP。普通用户可以继续粘贴正文，或前往个人首页充值并开通会员。</p>
+        <div class="modal-actions">
+            <button id="closeVipModalButton" class="light" type="button">知道了</button>
+            <button id="openVipPageButton" type="button">去开通会员</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const button = document.getElementById('convertButton');
     const sampleButton = document.getElementById('sampleButton');
     const clearButton = document.getElementById('clearButton');
     const copyButton = document.getElementById('copyButton');
     const downloadButton = document.getElementById('downloadButton');
+    const refreshHistoryButton = document.getElementById('refreshHistoryButton');
     const loginButton = document.getElementById('loginButton');
     const registerButton = document.getElementById('registerButton');
     const logoutButton = document.getElementById('logoutButton');
@@ -546,6 +661,9 @@
     const rechargeAmountInput = document.getElementById('rechargeAmount');
     const backToAppButton = document.getElementById('backToAppButton');
     const backFromAccountButton = document.getElementById('backFromAccountButton');
+    const vipModal = document.getElementById('vipModal');
+    const closeVipModalButton = document.getElementById('closeVipModalButton');
+    const openVipPageButton = document.getElementById('openVipPageButton');
     const status = document.getElementById('status');
     const navUser = document.getElementById('navUser');
     const introBlock = document.getElementById('introBlock');
@@ -562,6 +680,7 @@
     const novelFileInput = document.getElementById('novelFile');
     const novelTextInput = document.getElementById('novelText');
     const yamlOutput = document.getElementById('yamlOutput');
+    const historyList = document.getElementById('historyList');
     const chapterMetric = document.getElementById('chapterMetric');
     const charMetric = document.getElementById('charMetric');
     const MAX_NOVEL_CHARS = 1000;
@@ -629,6 +748,14 @@
         status.className = type === 'warning' ? 'status warning' : 'status';
     }
 
+    function showVipModal() {
+        vipModal.classList.remove('hidden');
+    }
+
+    function hideVipModal() {
+        vipModal.classList.add('hidden');
+    }
+
     function formatMoney(value) {
         const amount = Number(value || 0);
         return amount.toFixed(2);
@@ -637,11 +764,9 @@
     function updateNovelAccess() {
         if (loggedInVip) {
             novelTextInput.removeAttribute('maxlength');
-            novelFileInput.disabled = false;
             novelFileInput.title = '';
         } else {
             novelTextInput.maxLength = MAX_NOVEL_CHARS;
-            novelFileInput.disabled = true;
             novelFileInput.value = '';
             novelFileInput.title = '上传小说文件为 VIP 专属功能';
             limitNovelText(false);
@@ -711,6 +836,7 @@
 
         passwordInput.value = '';
         setCurrentUser(data.username, data.vip, data.balance);
+        await loadHistory();
         setStatus(endpoint.endsWith('/register') ? '注册成功，已自动登录。' : '登录成功。');
         showWorkspace();
     }
@@ -719,11 +845,83 @@
         const response = await fetch('/api/auth/me');
         const data = await response.json();
         setCurrentUser(data.success ? data.username : null, data.vip, data.balance);
+        if (data.success) {
+            await loadHistory();
+        } else {
+            renderHistory([]);
+        }
+    }
+
+    function renderHistory(items) {
+        historyList.innerHTML = '';
+        if (!loggedInUser) {
+            historyList.innerHTML = '<div class="small-note">登录后可查看最近生成记录。</div>';
+            return;
+        }
+        if (!items.length) {
+            historyList.innerHTML = '<div class="small-note">暂无历史记录，完成一次转换后会自动保存。</div>';
+            return;
+        }
+
+        items.forEach((item) => {
+            const button = document.createElement('button');
+            button.className = 'history-item';
+            button.type = 'button';
+            button.innerHTML = `
+                <span class="history-title">${escapeHtml(item.title || '未命名剧本')}</span>
+                <span class="history-meta">${escapeHtml(item.createdAt || '')} · ${escapeHtml(item.source || '未填写来源')}</span>
+            `;
+            button.addEventListener('click', () => {
+                titleInput.value = item.title || '';
+                sourceInput.value = item.source || '';
+                novelTextInput.value = item.novelText || '';
+                yamlOutput.value = item.yaml || '';
+                limitNovelText(false);
+                updateMetrics();
+                setStatus('已载入历史记录。');
+            });
+            historyList.appendChild(button);
+        });
+    }
+
+    async function loadHistory() {
+        if (!loggedInUser) {
+            renderHistory([]);
+            return;
+        }
+        try {
+            const response = await fetch('/api/history');
+            if (!response.ok) {
+                renderHistory([]);
+                return;
+            }
+            renderHistory(await response.json());
+        } catch (error) {
+            historyList.innerHTML = '<div class="small-note">历史记录读取失败。</div>';
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
     }
 
     novelTextInput.addEventListener('input', () => {
         limitNovelText(true);
         updateMetrics();
+    });
+
+    novelFileInput.addEventListener('click', (event) => {
+        if (!loggedInVip) {
+            event.preventDefault();
+            novelFileInput.value = '';
+            setStatus('上传小说文件是 VIP 专属功能，请先开通 VIP。', 'warning');
+            showVipModal();
+        }
     });
 
     novelFileInput.addEventListener('change', async () => {
@@ -735,7 +933,7 @@
         if (!loggedInVip) {
             setStatus('上传小说文件是 VIP 专属功能，请开通 VIP 后使用。', 'warning');
             novelFileInput.value = '';
-            showAuthPage();
+            showVipModal();
             return;
         }
 
@@ -812,6 +1010,7 @@
             } else {
                 yamlOutput.value = data.yaml;
                 setStatus('转换完成，可以复制或下载 YAML。');
+                await loadHistory();
             }
         } catch (error) {
             yamlOutput.value = '请求失败：' + error;
@@ -826,6 +1025,17 @@
     registerButton.addEventListener('click', () => submitAuth('/api/auth/register'));
     backToAppButton.addEventListener('click', showWorkspace);
     backFromAccountButton.addEventListener('click', showWorkspace);
+    closeVipModalButton.addEventListener('click', hideVipModal);
+    vipModal.addEventListener('click', (event) => {
+        if (event.target === vipModal) {
+            hideVipModal();
+        }
+    });
+    openVipPageButton.addEventListener('click', () => {
+        hideVipModal();
+        showAuthPage();
+    });
+    refreshHistoryButton.addEventListener('click', loadHistory);
     rechargeButton.addEventListener('click', async () => {
         const amount = Number(rechargeAmountInput.value);
         if (!Number.isFinite(amount) || amount <= 0) {
@@ -874,6 +1084,7 @@
     logoutButton.addEventListener('click', async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         setCurrentUser(null);
+        renderHistory([]);
         setStatus('已退出登录。');
         showAuthPage();
     });
