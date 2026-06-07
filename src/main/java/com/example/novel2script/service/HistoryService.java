@@ -66,6 +66,28 @@ public class HistoryService {
         );
     }
 
+    public int countToday(String username) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                        select count(*)
+                        from conversion_history
+                        where username = ?
+                          and date(created_at) = current_date()
+                        """,
+                Integer.class,
+                username
+        );
+        return count == null ? 0 : count;
+    }
+
+    public boolean delete(String username, long id) {
+        return jdbcTemplate.update(
+                "delete from conversion_history where username = ? and id = ?",
+                username,
+                id
+        ) > 0;
+    }
+
     private String normalize(String value) {
         return value == null ? "" : value.trim();
     }

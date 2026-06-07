@@ -64,4 +64,25 @@ class HistoryServiceTest {
         assertEquals("远方的灯火", items.get(0).getTitle());
         assertEquals("2026-06-07 12:00:00", items.get(0).getCreatedAt());
     }
+
+    @Test
+    void countsTodayHistory() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForObject(any(String.class), eq(Integer.class), eq("writer01"))).thenReturn(3);
+
+        HistoryService historyService = new HistoryService(jdbcTemplate);
+
+        assertEquals(3, historyService.countToday("writer01"));
+    }
+
+    @Test
+    void deletesOwnedHistory() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.update(any(String.class), eq("writer01"), eq(7L))).thenReturn(1);
+
+        HistoryService historyService = new HistoryService(jdbcTemplate);
+
+        assertEquals(true, historyService.delete("writer01", 7L));
+        verify(jdbcTemplate).update(any(String.class), eq("writer01"), eq(7L));
+    }
 }

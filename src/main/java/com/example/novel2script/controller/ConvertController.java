@@ -2,13 +2,17 @@ package com.example.novel2script.controller;
 
 import com.example.novel2script.model.ConvertRequest;
 import com.example.novel2script.model.ConvertResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.example.novel2script.service.AuthService;
 import com.example.novel2script.service.HistoryService;
 import com.example.novel2script.service.PromptService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +24,8 @@ import java.util.List;
 @RequestMapping("/api")
 public class ConvertController {
     private static final int MAX_NOVEL_TEXT_LENGTH = 1000;
+    private static final int DAILY_FREE_CONVERT_LIMIT = 3;
+    private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
     private final AuthService authService;
     private final HistoryService historyService;
     private final PromptService promptService;
@@ -42,8 +48,13 @@ public class ConvertController {
             return new ConvertResponse(null, "小说正文不能为空。");
         }
 
-        if (!authService.isVip(username) && request.getNovelText().trim().length() > MAX_NOVEL_TEXT_LENGTH) {
+        boolean vip = authService.isVip(username);
+        if (!vip && request.getNovelText().trim().length() > MAX_NOVEL_TEXT_LENGTH) {
             return new ConvertResponse(null, "小说正文最多 1000 字，请删减后再转换。");
+        }
+
+        if (!vip && historyService.countToday(username) >= DAILY_FREE_CONVERT_LIMIT) {
+            return new ConvertResponse(null, "普通用户每天最多转换 3 次，请开通 VIP 后继续使用。");
         }
 
         if (promptService.estimateChapterCount(request.getNovelText()) < 3) {
@@ -52,8 +63,9 @@ public class ConvertController {
 
         try {
             String yaml = promptService.convertNovelToYaml(request.getTitle(), request.getSource(), request.getNovelText());
+            String warning = validateYaml(yaml);
             historyService.save(username, request, yaml);
-            return new ConvertResponse(yaml, null);
+            return new ConvertResponse(yaml, null, warning);
         } catch (Exception e) {
             return new ConvertResponse(null, "转换失败: " + e.getMessage());
         }
@@ -67,5 +79,28 @@ public class ConvertController {
             return List.of();
         }
         return historyService.listByUsername(username);
+    }
+
+    @DeleteMapping(value = "/history/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Object deleteHistory(@PathVariable("id") long id, HttpSession session, HttpServletResponse response) {
+        String username = (String) session.getAttribute(AuthController.SESSION_USERNAME);
+        if (username == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return new ConvertResponse(null, "请先登录后再删除历史记录。");
+        }
+        if (!historyService.delete(username, id)) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return new ConvertResponse(null, "历史记录不存在或无权删除。");
+        }
+        return new ConvertResponse(null, null);
+    }
+
+    private String validateYaml(String yaml) {
+        try {
+            YAML_MAPPER.readTree(yaml);
+            return null;
+        } catch (Exception e) {
+            return "YAML 格式可能有问题，建议检查缩进和字段结构后再使用。";
+        }
     }
 }

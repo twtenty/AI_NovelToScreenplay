@@ -463,6 +463,10 @@
             box-shadow: 0 24px 60px rgba(45, 39, 32, .24);
         }
 
+        .modal.wide {
+            width: min(720px, 100%);
+        }
+
         .modal h3 {
             margin: 0 0 10px;
             color: #4f4942;
@@ -480,6 +484,29 @@
             gap: 10px;
             justify-content: flex-end;
             margin-top: 20px;
+        }
+
+        .modal-meta {
+            display: grid;
+            gap: 8px;
+            margin: 14px 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .modal-pre {
+            max-height: 300px;
+            overflow: auto;
+            margin: 14px 0 0;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfaf7;
+            color: #4f4942;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
         }
 
         @media (max-width: 920px) {
@@ -624,6 +651,7 @@
             <div class="toolbar">
                 <button id="copyButton" class="secondary" type="button">复制 YAML</button>
                 <button id="downloadButton" class="secondary" type="button">下载 YAML</button>
+                <button id="schemaButton" class="light" type="button">查看 Schema 示例</button>
             </div>
 
         </article>
@@ -646,12 +674,42 @@
     </div>
 </div>
 
+<div id="historyModal" class="modal-mask hidden">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+        <h3 id="historyModalTitle">历史记录详情</h3>
+        <div class="modal-meta">
+            <span id="historyDetailTitle"></span>
+            <span id="historyDetailSource"></span>
+            <span id="historyDetailTime"></span>
+        </div>
+        <pre id="historyDetailYaml" class="modal-pre"></pre>
+        <div class="modal-actions">
+            <button id="deleteHistoryButton" class="light" type="button">删除</button>
+            <button id="closeHistoryModalButton" class="light" type="button">关闭</button>
+            <button id="loadHistoryButton" type="button">载入编辑</button>
+        </div>
+    </div>
+</div>
+
+<div id="schemaModal" class="modal-mask hidden">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="schemaModalTitle">
+        <h3 id="schemaModalTitle">YAML Schema 示例</h3>
+        <p>生成结果应尽量保持章节、场景、动作和对白的结构清晰。</p>
+        <pre id="schemaExampleText" class="modal-pre"></pre>
+        <div class="modal-actions">
+            <button id="copySchemaButton" class="light" type="button">复制示例</button>
+            <button id="closeSchemaModalButton" type="button">关闭</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const button = document.getElementById('convertButton');
     const sampleButton = document.getElementById('sampleButton');
     const clearButton = document.getElementById('clearButton');
     const copyButton = document.getElementById('copyButton');
     const downloadButton = document.getElementById('downloadButton');
+    const schemaButton = document.getElementById('schemaButton');
     const refreshHistoryButton = document.getElementById('refreshHistoryButton');
     const loginButton = document.getElementById('loginButton');
     const registerButton = document.getElementById('registerButton');
@@ -664,6 +722,18 @@
     const vipModal = document.getElementById('vipModal');
     const closeVipModalButton = document.getElementById('closeVipModalButton');
     const openVipPageButton = document.getElementById('openVipPageButton');
+    const historyModal = document.getElementById('historyModal');
+    const closeHistoryModalButton = document.getElementById('closeHistoryModalButton');
+    const loadHistoryButton = document.getElementById('loadHistoryButton');
+    const deleteHistoryButton = document.getElementById('deleteHistoryButton');
+    const historyDetailTitle = document.getElementById('historyDetailTitle');
+    const historyDetailSource = document.getElementById('historyDetailSource');
+    const historyDetailTime = document.getElementById('historyDetailTime');
+    const historyDetailYaml = document.getElementById('historyDetailYaml');
+    const schemaModal = document.getElementById('schemaModal');
+    const schemaExampleText = document.getElementById('schemaExampleText');
+    const copySchemaButton = document.getElementById('copySchemaButton');
+    const closeSchemaModalButton = document.getElementById('closeSchemaModalButton');
     const status = document.getElementById('status');
     const navUser = document.getElementById('navUser');
     const introBlock = document.getElementById('introBlock');
@@ -687,8 +757,31 @@
     let loggedInUser = null;
     let loggedInVip = false;
     let loggedInBalance = 0;
+    let selectedHistoryItem = null;
+    let loadingTimer = null;
 
     const chapterPattern = /^\s*(第[一二三四五六七八九十百千万0-9]+[章节回]|chapter\s*\d+|chap\.\s*\d+).*$/gim;
+    const schemaExample = `title: 小说名称
+source: 原文来源
+generation_mode: ai
+chapters:
+  - chapter: 第一章
+    summary: 章节概述
+    scenes:
+      - scene_id: "1.1"
+        title: 场景标题
+        location: 场景地点
+        time: 场景时间
+        description: 场景概述、冲突推进和氛围说明
+        characters:
+          - 角色名
+        actions:
+          - actor: 角色名
+            text: 动作或关键视觉信息
+        dialogues:
+          - speaker: 角色名
+            line: 角色对白
+        notes: 改编建议或后续打磨方向`;
     const sampleNovel = `第一章 雨夜归来
 
 林澈在雨夜回到海边小镇。车站的灯忽明忽暗，他拖着旧行李箱走下最后一班车。站台尽头，沈晚撑着一把黑伞，像是已经等了很久。
@@ -754,6 +847,50 @@
 
     function hideVipModal() {
         vipModal.classList.add('hidden');
+    }
+
+    function showHistoryModal(item) {
+        selectedHistoryItem = item;
+        historyDetailTitle.textContent = `标题：${item.title || '未命名剧本'}`;
+        historyDetailSource.textContent = `来源：${item.source || '未填写来源'}`;
+        historyDetailTime.textContent = `时间：${item.createdAt || ''}`;
+        historyDetailYaml.textContent = item.yaml || '';
+        historyModal.classList.remove('hidden');
+    }
+
+    function hideHistoryModal() {
+        historyModal.classList.add('hidden');
+    }
+
+    function showSchemaModal() {
+        schemaExampleText.textContent = schemaExample;
+        schemaModal.classList.remove('hidden');
+    }
+
+    function hideSchemaModal() {
+        schemaModal.classList.add('hidden');
+    }
+
+    function startConversionLoading(chapterCount) {
+        const steps = [
+            `正在分析 ${chapterCount} 个章节...`,
+            '正在拆分场景...',
+            '正在生成动作和对白...',
+            '正在整理 YAML 结构...'
+        ];
+        let index = 0;
+        yamlOutput.value = steps[index];
+        loadingTimer = window.setInterval(() => {
+            index = (index + 1) % steps.length;
+            yamlOutput.value = steps[index];
+        }, 900);
+    }
+
+    function stopConversionLoading() {
+        if (loadingTimer) {
+            window.clearInterval(loadingTimer);
+            loadingTimer = null;
+        }
     }
 
     function formatMoney(value) {
@@ -871,15 +1008,7 @@
                 <span class="history-title">${escapeHtml(item.title || '未命名剧本')}</span>
                 <span class="history-meta">${escapeHtml(item.createdAt || '')} · ${escapeHtml(item.source || '未填写来源')}</span>
             `;
-            button.addEventListener('click', () => {
-                titleInput.value = item.title || '';
-                sourceInput.value = item.source || '';
-                novelTextInput.value = item.novelText || '';
-                yamlOutput.value = item.yaml || '';
-                limitNovelText(false);
-                updateMetrics();
-                setStatus('已载入历史记录。');
-            });
+            button.addEventListener('click', () => showHistoryModal(item));
             historyList.appendChild(button);
         });
     }
@@ -991,7 +1120,7 @@
             return;
         }
 
-        yamlOutput.value = '';
+        startConversionLoading(chapterCount);
         setStatus(`正在转换 ${chapterCount} 个章节，请稍候。`);
         button.disabled = true;
         button.textContent = '转换中...';
@@ -1009,13 +1138,14 @@
                 setStatus(response.status === 401 ? data.error : '转换失败，请检查输入内容或后端配置。', 'warning');
             } else {
                 yamlOutput.value = data.yaml;
-                setStatus('转换完成，可以复制或下载 YAML。');
+                setStatus(data.warning || '转换完成，可以复制或下载 YAML。', data.warning ? 'warning' : 'info');
                 await loadHistory();
             }
         } catch (error) {
             yamlOutput.value = '请求失败：' + error;
             setStatus('请求失败，请确认服务已启动。', 'warning');
         } finally {
+            stopConversionLoading();
             button.disabled = false;
             button.textContent = '开始转换';
         }
@@ -1034,6 +1164,66 @@
     openVipPageButton.addEventListener('click', () => {
         hideVipModal();
         showAuthPage();
+    });
+    closeHistoryModalButton.addEventListener('click', hideHistoryModal);
+    historyModal.addEventListener('click', (event) => {
+        if (event.target === historyModal) {
+            hideHistoryModal();
+        }
+    });
+    loadHistoryButton.addEventListener('click', () => {
+        if (!selectedHistoryItem) {
+            return;
+        }
+        titleInput.value = selectedHistoryItem.title || '';
+        sourceInput.value = selectedHistoryItem.source || '';
+        novelTextInput.value = selectedHistoryItem.novelText || '';
+        yamlOutput.value = selectedHistoryItem.yaml || '';
+        limitNovelText(false);
+        updateMetrics();
+        hideHistoryModal();
+        showWorkspace();
+        setStatus('已载入历史记录。');
+    });
+    deleteHistoryButton.addEventListener('click', async () => {
+        if (!selectedHistoryItem) {
+            return;
+        }
+        deleteHistoryButton.disabled = true;
+        try {
+            const response = await fetch(`/api/history/${selectedHistoryItem.id}`, { method: 'DELETE' });
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (error) {
+                data = {};
+            }
+
+            if (!response.ok || data.error) {
+                setStatus(data.error || '删除失败，请确认后端服务已重启到最新版本。', 'warning');
+                return;
+            }
+
+            hideHistoryModal();
+            selectedHistoryItem = null;
+            await loadHistory();
+            setStatus('历史记录已删除。');
+        } catch (error) {
+            setStatus('删除失败，请确认服务已启动。', 'warning');
+        } finally {
+            deleteHistoryButton.disabled = false;
+        }
+    });
+    schemaButton.addEventListener('click', showSchemaModal);
+    closeSchemaModalButton.addEventListener('click', hideSchemaModal);
+    schemaModal.addEventListener('click', (event) => {
+        if (event.target === schemaModal) {
+            hideSchemaModal();
+        }
+    });
+    copySchemaButton.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(schemaExample);
+        setStatus('Schema 示例已复制。');
     });
     refreshHistoryButton.addEventListener('click', loadHistory);
     rechargeButton.addEventListener('click', async () => {
