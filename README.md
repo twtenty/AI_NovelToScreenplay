@@ -18,6 +18,7 @@
 - Java 17
 - Spring Boot 3.2
 - 原生 HTML/CSS/JavaScript
+- MySQL + Spring JDBC
 - OpenAI 兼容 Chat Completions API（默认通义千问 DashScope）
 
 ## 环境要求
@@ -25,6 +26,7 @@
 - JDK 17
 - Maven 3.8+
 - Git
+- MySQL 8.x
 
 ## 运行方式
 
@@ -36,6 +38,9 @@
 DASHSCOPE_API_KEY=your_dashscope_api_key_here
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL=qwen-turbo
+MYSQL_URL=jdbc:mysql://localhost:3306/novel2script?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=your_mysql_password_here
 ```
 
 方式二：在当前 PowerShell 临时设置环境变量。
@@ -57,6 +62,8 @@ LLM_BASE_URL=平台提供的兼容接口地址
 LLM_MODEL=平台模型名称
 LLM_API_KEY=平台 API Key
 ```
+
+MySQL 会在应用启动时自动创建 `users` 表；如果连接用户有建库权限，`createDatabaseIfNotExist=true` 会自动创建 `novel2script` 数据库。
 
 2. 编译并运行：
 
@@ -84,6 +91,9 @@ mvn test
 - 中文章节标题识别
 - 章节标题提取
 - 未配置 API Key 时的多章节演示 YAML 输出
+- 用户注册、重复用户名、登录密码校验逻辑
+
+测试中使用 mock 的 `JdbcTemplate` 验证用户逻辑，不再引入 H2 内存数据库。
 
 ## VS Code 运行
 
@@ -121,7 +131,7 @@ mvn test
 
 - `src/main/java`：Java 后端实现
 - `src/main/resources/static/index.html`：前端页面
-- `data/users.json`：本地注册用户数据，运行时自动生成，已被 `.gitignore` 忽略
+- `src/main/resources/application.properties`：MySQL 连接配置
 - `YAML_SCHEMA.md`：剧本 YAML Schema 说明与设计原因
 - `schema.md`：Schema 简版说明
 - `examples/input_novel.md`：示例小说输入
